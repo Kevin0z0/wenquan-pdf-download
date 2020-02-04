@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
 // @namespace    https://52pojie.cn
-// @version      0.2
-// @description  try to take over the world!
+// @version      0.21
+// @description  文泉学堂PDF下载，已支持报错重新下载当前图片
 // @author       Culaccino
 // @match        https://*.wqxuetang.com/read/pdf/*
 // @grant        none
@@ -68,7 +68,7 @@
           }})
         data.then(v=>{d.getData(v, nowPage)})
     }
-    d.getData =function(a, p){
+    d.getData = async function(a, p){
         const time = Date.parse(new Date).toString().slice(0,10),
               foreCode = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
               payload = {
@@ -83,7 +83,7 @@
         try{d.convertImgToBase64(result, "jpeg",p, a)}
         catch(e){
             error("连接出错，开始重新获取", e, p);
-            d.sleep(d.randInt(5,30));
+            await d.sleep(d.randInt(1000,2000));
             d.getData(a, p)
         }
     }
@@ -118,7 +118,7 @@
         return Math.floor(Math.random() * (max - min + 1) ) + min;
     }
     //https://lib-nuanxin.wqxuetang.com/read/pdf/2175744
-    d.convertImgToBase64 = function (url, ext, p, a) {
+    d.convertImgToBase64 = async function (url, ext, p, a) {
         let canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
             img = new Image,
@@ -133,9 +133,9 @@
             if(dataURI.length === 22471 && md5(dataURI) === "d9fff72044ac9a2726972b9dba58aa4e"){
                 print("获取到加载中的图片，开始重新获取");
                 errorTime += 1;
-                if(errorTime === 3){throw new Error('获取失败，请重试');}
-                await d.sleep(d.randInt(5000,12000))
-                d.getData(a, nowPage = p)
+                if(errorTime === 5){doc.save(name + '.pdf');throw new Error('获取失败，稍等一会再试试吧');}
+                await d.sleep(d.randInt(15000,30000))
+                Download()
                 return;
             }
             print("开始下载第" + p + "页")
@@ -143,11 +143,16 @@
             canvas = null;
             btn.innerHTML = `${p}/${allPage}`
             doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
-            if(p === 100){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
+            if(p === allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
             doc.addPage()
-            await d.sleep(d.randInt(5000,12000)) //随机间隔时间
+            await d.sleep(d.randInt(1000,2000)) //随机间隔时间
             d.getData(a, nowPage = p += 1)
         };
+        img.onerror = async function(){
+            error("连接出错，开始重新获取", p);
+            await d.sleep(d.randInt(15000,30000));
+            d.getData(a, p)
+        }
         img.src = url;
     }
     window.Download = Download;
