@@ -1,35 +1,37 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
-// @namespace    https://dsb.ink
-// @version      0.1
-// @description  文泉学堂PDF下载脚本，已测试火狐
-// @author       zkw6666
-// @match        https://lib-nuanxin.wqxuetang.com/read/pdf/*
+// @namespace    https://52pojie.cn
+// @version      0.2
+// @description  try to take over the world!
+// @author       Culaccino
+// @match        https://*.wqxuetang.com/read/pdf/*
 // @grant        none
-// @require      http://js.dsb.ink/js/hmac-sha256.js
-// @require      http://js.dsb.ink/js/enc-base64-min.js
-// @require      http://js.dsb.ink/js/jspdf.min.js
+// @require      https://cdn.staticfile.org/crypto-js/3.1.2/rollups/hmac-sha256.js
+// @require      https://cdn.staticfile.org/crypto-js/3.1.2/components/enc-base64-min.js
+// @require      https://cdn.staticfile.org/jspdf/1.5.3/jspdf.min.js
+// @require      https://cdn.staticfile.org/blueimp-md5/2.12.0/js/md5.min.js
 // ==/UserScript==
 
 (function() {
-    const bid = window.location.href.replace("https://lib-nuanxin.wqxuetang.com/read/pdf/","")
+    const baseURL = `https://${window.location.host}/`
+    const bid = window.location.href.replace(baseURL + "read/pdf/","")
     const headers = {
         "credentials": "include",
         "headers": {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:72.0) Gecko/20100101 Firefox/72.0",
+            "User-Agent": navigator.userAgent,
             "Accept": "*/*",
             "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
             "Cache-Control": "max-age=0"
         },
-        "referrer": "https://lib-nuanxin.wqxuetang.com/read/pdf/" + bid,
+        "referrer": window.location.href,
         "method": "GET",
         "mode": "cors"
     }
-    var doc,size,allPage,name,btn = document.createElement("button");
+    var doc,size,allPage,name,errorTime = 0,nowPage = 1,btn = document.createElement("button");
     const w = 100,
-        h = 40
+          h = 40
     btn.innerHTML = "初始化..."
-    btn.setAttribute("style",`position: fixed; cursor:pointer;z-index: 10000; top: 0px; left: 50%; margin-left: -146.5px;width: ${w}px;height: ${h}px;border: none;background: #004DA9;color: #fff;font-size: 16px;border-radius: 0 0 10px 10px;`)
+    btn.setAttribute("style",`position: fixed; cursor:pointer;z-index: 10000; top: 0px; left: 50%; margin-left: -146.5px;min-width: ${w}px;height: ${h}px;border: none;background: #004DA9;color: #fff;font-size: 16px;border-radius: 0 0 10px 10px;`)
     btn.style.marginLeft = -w / 2 + "px"
     document.body.appendChild(btn)
     function print(){console.log(...arguments)}
@@ -39,7 +41,7 @@
     }
 
     Download.INIT = function(){
-        const data = fetch("https://lib-nuanxin.wqxuetang.com/v1/read/initread?bid=" + bid, headers).then(function(res){
+        const data = fetch(baseURL + "v1/read/initread?bid=" + bid, headers).then(function(res){
           if(res.status >=200 && res.status <300){
               return res.json();
           }else{
@@ -52,8 +54,7 @@
     var d = Download.INIT.prototype;
     d.init = function(val){
         this.val = val["data"];
-        this.page = 1;
-        this.baseURL = "https://lib-nuanxin.wqxuetang.com/";
+        this.baseURL = baseURL;
         this.bid = bid;
         this.jwtSecret = "g0NnWdSE8qEjdMD8a1aq12qEYphwErKctvfd3IktWHWiOBpVsgkecur38aBRPn2w";
         name = this.val["name"];
@@ -65,7 +66,7 @@
             error.res = res
             throw error
           }})
-        data.then(v=>{d.getData(v, this.page)})
+        data.then(v=>{d.getData(v, nowPage)})
     }
     d.getData =function(a, p){
         const time = Date.parse(new Date).toString().slice(0,10),
@@ -80,16 +81,18 @@
               }
         const result = d.jsonWebToken(foreCode,payload,this.jwtSecret);
         try{d.convertImgToBase64(result, "jpeg",p, a)}
-        catch(e){error("连接出错，开始重新获取", e);d.getData(a, p)}
-        //doc.addImage(base64, 'JPEG', 0, 0, 1439, 1998)
-        //doc.save('hello.pdf')
+        catch(e){
+            error("连接出错，开始重新获取", e, p);
+            d.sleep(d.randInt(5,30));
+            d.getData(a, p)
+        }
     }
     d.jsonWebToken = function(f,p,s){
         const b64 = f + "." +btoa(d.objToString(p)).replace(/[=]/g,"");
         var hash = CryptoJS.HmacSHA256(b64, s);
         var hashInBase64 = CryptoJS.enc.Base64.stringify(hash);
         hashInBase64 = hashInBase64.replace(/[+]/g, "-").replace(/[/]/g, "_").replace(/[=]/g, "")
-        return `${this.baseURL}page/img/${this.bid}/${this.page}?k=${b64}.${hashInBase64}`
+        return `${this.baseURL}page/img/${this.bid}/${nowPage}?k=${b64}.${hashInBase64}`
     }
     d.objToString = function(obj,onoff){
         let str = "{";
@@ -107,24 +110,43 @@
         }
         return str.slice(0,str.length - 1) + "}"
     }
+    d.sleep = function sleep (time) {
+        print(time)
+        return new Promise((resolve) => setTimeout(resolve, time));
+    }
+    d.randInt = function(min, max){
+        return Math.floor(Math.random() * (max - min + 1) ) + min;
+    }
     //https://lib-nuanxin.wqxuetang.com/read/pdf/2175744
     d.convertImgToBase64 = function (url, ext, p, a) {
         let canvas = document.createElement('canvas'),
             ctx = canvas.getContext('2d'),
             img = new Image,
             data = ""
-        btn.innerHTML = `${p}/${allPage}`
         img.crossOrigin = '';
-        img.onload = function () {
+        img.onload = async function () {
             canvas.height = img.height;
             canvas.width = img.width;
             ctx.drawImage(img, 0, 0);
-            var dataURL = canvas.toDataURL('image/' + ext);
+            if(!size){size = [img.width,img.height];doc = new jsPDF("", 'pt', size)}
+            var dataURI = canvas.toDataURL('image/' + ext);
+            if(dataURI.length === 22471 && md5(dataURI) === "d9fff72044ac9a2726972b9dba58aa4e"){
+                print("获取到加载中的图片，开始重新获取");
+                errorTime += 1;
+                if(errorTime === 3){throw new Error('获取失败，请重试');}
+                await d.sleep(d.randInt(5000,12000))
+                d.getData(a, nowPage = p)
+                return;
+            }
+            print("开始下载第" + p + "页")
+            errorTime = 0;
             canvas = null;
-            doc.addImage(dataURL, 'JPEG', 0, 0, size[0], size[1])
-            if(p === allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
+            btn.innerHTML = `${p}/${allPage}`
+            doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
+            if(p === 100){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
             doc.addPage()
-            d.getData(a, p += 1)
+            await d.sleep(d.randInt(5000,12000)) //随机间隔时间
+            d.getData(a, nowPage = p += 1)
         };
         img.src = url;
     }
@@ -133,16 +155,12 @@
     window.onload = function(){
         btn.innerHTML = "下载PDF"
         btn.onclick = function(){
-            var getSize = function(){
-                const imgBox = document.getElementsByClassName("page-img-box")[1]
-                return [imgBox.offsetWidth,imgBox.offsetHeight]
-            }
-            size = getSize()
-            let a = document.getElementsByClassName("page-head-tol")[0].innerHTML
-            allPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
-            this.innerHTML = "加载中...";
-            doc = new jsPDF("", 'px', size)
-            Download()
+            try{
+                let a = document.getElementsByClassName("page-head-tol")[0].innerHTML
+                allPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
+                this.innerHTML = "加载中...";
+                Download()
+            }catch(e){alert("无法获取页面，请等待页面出现图片之后再下载")}
         }
     }
 })();
