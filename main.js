@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
 // @namespace    https://52pojie.cn
-// @version      0.21
-// @description  文泉学堂PDF下载，已支持报错重新下载当前图片
+// @version      0.25
+// @description  try to take over the world!
 // @author       Culaccino
 // @match        https://*.wqxuetang.com/read/pdf/*
 // @grant        none
@@ -27,13 +27,33 @@
         "method": "GET",
         "mode": "cors"
     }
-    var doc,size,allPage,name,errorTime = 0,nowPage = 1,btn = document.createElement("button");
+    var doc,size,allPage,name,errorTime = 0,nowPage,btn = document.createElement("button");
     const w = 100,
           h = 40
+    const wrap = document.createElement("div"),
+          input = document.createElement("input"),
+          style = document.createElement('style'),
+          close = document.createElement("div")
+    style.innerHTML = `#download{transition:.25s;position: fixed; cursor:pointer;z-index: 10000; top: 0px; left: 50%; margin-left: -146.5px;min-width: ${w}px;height: ${h}px;padding:8px;border: none;background: #004DA9;color: #fff;font-size: 16px;border-radius: 0 0 10px 10px;}#wrap{overflow:hidden;width: 200px;height: 200px;background: #004DA9;position: fixed;top: 0;left: 50%;margin-left: -100px;border-radius: 0 0 5px 5px;z-index: 9999;text-align:center;}input{width: 80%;text-align:center;display: inline-block;background: #053062;border: none;border-radius: 5px;height: 32px;color: #fff;}#close{width: 100%;height: 30px;position: absolute;bottom: 0;color: #fff;cursor:pointer;line-height:30px;transition:.25s;}#download:hover,#close:hover{background:#053062;}`
     btn.innerHTML = "初始化..."
-    btn.setAttribute("style",`position: fixed; cursor:pointer;z-index: 10000; top: 0px; left: 50%; margin-left: -146.5px;min-width: ${w}px;height: ${h}px;border: none;background: #004DA9;color: #fff;font-size: 16px;border-radius: 0 0 10px 10px;`)
+    btn.setAttribute("id","download")
     btn.style.marginLeft = -w / 2 + "px"
+    wrap.setAttribute("id","wrap")
+    wrap.innerHTML = "<div style='width:100%;height:40px'></div>"
+    input.setAttribute("type", "text")
+    const input2 = input.cloneNode(true)
+    input.setAttribute("placeholder","开始页(可不写)")
+    input.style.margin = "20px 0"
+    input2.setAttribute("placeholder","结束页(可不写)")
+    close.innerHTML = "收起"
+    close.setAttribute("id","close")
+    wrap.appendChild(input)
+    wrap.appendChild(input2)
+    wrap.appendChild(close)
+    document.body.appendChild(style)
     document.body.appendChild(btn)
+    document.body.appendChild(wrap)
+    close.onclick = function(){wrap.style.display = "none"}
     function print(){console.log(...arguments)}
     function error(){console.error(...arguments)}
     var Download = function(){
@@ -68,7 +88,7 @@
           }})
         data.then(v=>{d.getData(v, nowPage)})
     }
-    d.getData = async function(a, p){
+    d.getData = function(a, p){
         const time = Date.parse(new Date).toString().slice(0,10),
               foreCode = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
               payload = {
@@ -80,12 +100,7 @@
                  iat: parseInt(time)
               }
         const result = d.jsonWebToken(foreCode,payload,this.jwtSecret);
-        try{d.convertImgToBase64(result, "jpeg",p, a)}
-        catch(e){
-            error("连接出错，开始重新获取", e, p);
-            await d.sleep(d.randInt(1000,2000));
-            d.getData(a, p)
-        }
+        d.convertImgToBase64(result, "jpeg",p, a)
     }
     d.jsonWebToken = function(f,p,s){
         const b64 = f + "." +btoa(d.objToString(p)).replace(/[=]/g,"");
@@ -145,7 +160,7 @@
             doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
             if(p === allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
             doc.addPage()
-            await d.sleep(d.randInt(1000,2000)) //随机间隔时间
+            await d.sleep(d.randInt(5000,12000))
             d.getData(a, nowPage = p += 1)
         };
         img.onerror = async function(){
@@ -162,7 +177,9 @@
         btn.onclick = function(){
             try{
                 let a = document.getElementsByClassName("page-head-tol")[0].innerHTML
-                allPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
+                let maxPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
+                nowPage = parseInt(input.value) || 1
+                allPage = Math.min(maxPage, parseInt(input2.value) || maxPage)
                 this.innerHTML = "加载中...";
                 Download()
             }catch(e){alert("无法获取页面，请等待页面出现图片之后再下载")}
