@@ -29,3 +29,6 @@
 ```
 
 点颗小星星哦亲
+
+目前依旧可以运行的同类项目
+[wqxuetang-pdf-downloader](https://github.com/SweetInk/wqxuetang-pdf-downloader) 
