@@ -16,10 +16,11 @@
     const baseURL = `https://${window.location.host}/`
     if(baseURL.indexOf("www") > -1){window.location.href=window.location.href.replace("www","lib-nuanxin")}
     const bid = window.location.href.replace(baseURL + "read/pdf/","")
+    const agent = navigator.userAgent
     const headers = {
         "credentials": "include",
         "headers": {
-            "User-Agent": navigator.userAgent,
+            "User-Agent": agent,
             "Accept": "*/*",
             "Accept-Language": "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
             "Cache-Control": "max-age=0"
@@ -28,7 +29,10 @@
         "method": "GET",
         "mode": "cors"
     }
+
     var doc,size,allPage,name,errorTime = 0,nowPage,btn = document.createElement("button");
+    const dataLength = agent.indexOf("Firefox") > -1 ? 64655 : 22471
+    const dataMD5 = agent.indexOf("Firefox") > -1 ? "aba56eca9b49564cb47bce3f57bd14c2" : "d9fff72044ac9a2726972b9dba58aa4e"
     const w = 100,
           h = 40;
     const wrap = document.createElement("div"),
@@ -120,7 +124,7 @@
         for(let i in obj){
             const item = obj[i]
             if(typeof item === "object"){
-                str += sym(i) + ':"' + d.objToString(item,1) + '"'
+                str += sym(i) + ":" + sym(d.objToString(item,1))
             }else if(typeof item === "number"){
                 str += sym(i) + ":" + item
             }else if(typeof item === "string"){
@@ -150,7 +154,7 @@
             ctx.drawImage(img, 0, 0);
             if(!size){size = [img.width,img.height];doc = new jsPDF("", 'pt', size)}
             var dataURI = canvas.toDataURL('image/' + ext);
-            if(dataURI.length === 22471 && md5(dataURI) === "d9fff72044ac9a2726972b9dba58aa4e"){
+            if(dataURI.length === dataLength && md5(dataURI) === dataMD5){
                 print("获取到加载中的图片，开始重新获取");
                 errorTime += 1;
                 if(errorTime === 5){doc.save(name + '.pdf');throw new Error('获取失败，稍等一会再试试吧');}
