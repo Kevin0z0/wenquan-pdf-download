@@ -164,9 +164,8 @@
             btn.innerHTML = `${p}/${allPage}`
             doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
             if(p === allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
-            if(p % 40 === 0){await d.sleep(180000)}
             doc.addPage()
-            //await d.sleep(d.randInt(5000,12000))
+            await d.sleep(d.randInt(5000,12000))
             d.getData(a, nowPage = p += 1)
         };
         img.onerror = async function(){
