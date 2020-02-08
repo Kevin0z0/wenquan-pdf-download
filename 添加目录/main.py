@@ -1,5 +1,6 @@
-import requests
 import fitz
+import requests
+from re import sub
 from time import sleep
 from json import loads
 
@@ -20,20 +21,30 @@ try:
     }
 except:
     input("未检测到cookie.txt，请检查是否有此文件，按回车键退出")
+    exit(0)
 
 try:
     data = loads(requests.get(url,headers=headers).text)["data"]
     name = loads(requests.get(bookURL,headers=headers).text)["data"]["name"]
 except:
     input("可能是cookie过期了，请重新在网页中获取，按回车键退出")
+    exit(0)
 
 try:
+    name = sub("[<>|\"\\\/:?*]", "_", name)
     doc = fitz.open(name + ".pdf")
+except:
+    input("未获取到此目录下的书名，请再次检查，按回车键退出")
+    exit(0)
+    
+try:
     toc = doc.getToC()
     pdfTOC(data)
     doc.setToC(toc)
     doc.save(name + "_已加目录.pdf")
 except:
-    input("未获取到此目录下的书名，请再次检查，按回车键退出")
+	input("合并目录失败，请确保是否为完整的pdf，按回车键退出")
+	exit(0)
+
 print("成功!")
 sleep(10)
