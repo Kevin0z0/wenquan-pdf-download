@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
 // @namespace    https://52pojie.cn
-// @version      0.31
+// @version      0.40
 // @description  try to take over the world!
 // @author       Culaccino
 // @match        https://*.wqxuetang.com/read/pdf/*
@@ -29,8 +29,8 @@
         "method": "GET",
         "mode": "cors"
     }
-
-    var doc,size,allPage,name,errorTime = 0,nowPage,btn = document.createElement("button");
+    window.allPage = 0;
+    var doc,size,name,errorTime = 0,nowPage,btn = document.createElement("button"),isStart = 0;
     const dataLength = agent.indexOf("Firefox") > -1 ? 64655 : 22471
     const dataMD5 = agent.indexOf("Firefox") > -1 ? "aba56eca9b49564cb47bce3f57bd14c2" : "d9fff72044ac9a2726972b9dba58aa4e"
     const w = 100,
@@ -152,7 +152,10 @@
             canvas.height = img.height;
             canvas.width = img.width;
             ctx.drawImage(img, 0, 0);
-            if(!size){size = [img.width,img.height];doc = new jsPDF("", 'pt', size)}
+            if(!size){
+                size = [img.width,img.height];
+                doc = new jsPDF(size[0] < size[1] ? "" : "l", 'pt', size)
+            }
             var dataURI = canvas.toDataURL('image/' + ext);
             if(dataURI.length === dataLength && md5(dataURI) === dataMD5){
                 print("获取到加载中的图片，开始重新获取");
@@ -162,15 +165,22 @@
                 Download()
                 return;
             }
-            print("开始下载第" + p + "页")
-            errorTime = 0;
-            canvas = null;
-            btn.innerHTML = `${p}/${allPage}`
-            doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
-            if(p === allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
-            doc.addPage()
-            await d.sleep(d.randInt(5000,12000))
-            d.getData(a, nowPage = p += 1)
+            if(isStart){
+                print("开始下载第" + p + "页")
+                errorTime = 0;
+                canvas = null;
+                btn.innerHTML = `${p}/${window.allPage}`
+                doc.addImage(dataURI, 'JPEG', 0, 0, img.width, img.height)
+                if(p >= window.allPage){doc.save(name + '.pdf');btn.innerHTML = "已完成";return}
+                doc.addPage()
+                await d.sleep(d.randInt(5000,12000));
+                d.getData(a, nowPage = p += 1);
+            }else{
+                nowPage = p;
+                btn.disabled = false;
+                btn.innerHTML = "继续下载";
+                throw new Error('quit')
+            }
         };
         img.onerror = async function(){
             error("连接出错，开始重新获取", p);
@@ -184,14 +194,29 @@
     window.onload = function(){
         btn.innerHTML = "下载PDF"
         btn.onclick = function(){
-            try{
-                let a = document.getElementsByClassName("page-head-tol")[0].innerHTML
-                let maxPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
-                nowPage = parseInt(input.value) || 1
-                allPage = Math.min(maxPage, parseInt(input2.value) || maxPage)
-                this.innerHTML = "加载中...";
-                Download()
-            }catch(e){alert("无法获取页面，请等待页面出现图片之后再下载")}
+            if(!isStart){
+                try{
+                    let a = document.getElementsByClassName("page-head-tol")[0].innerHTML
+                    let maxPage = parseInt(a.slice(a.indexOf("/") + 1,a.length))
+                    isStart = !isStart
+                    nowPage = nowPage || parseInt(input.value) || 1
+                    window.allPage = Math.min(maxPage, parseInt(input2.value) || maxPage)
+                    this.innerHTML = "加载中...";
+                    Download()
+                }catch(e){alert("无法获取页面，请等待页面出现图片之后再下载")}
+            }else{
+                doc.deletePage(doc.internal.getNumberOfPages())
+                doc.save(name + '.pdf');
+                doc.addPage()
+                btn.disabled = true;
+                btn.innerHTML = "保存中...";
+                isStart = !isStart;
+            }
+        }
+        window.onbeforeunload=function(){
+            if(isStart) {
+                return "leave？";
+            }
         }
     }
 })();
