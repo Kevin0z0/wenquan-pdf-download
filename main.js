@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
 // @namespace    https://52pojie.cn
-// @version      0.50
+// @version      0.51
 // @description  try to take over the world!
 // @author       Culaccino
 // @match        https://*.wqxuetang.com/read/pdf/*
@@ -11,7 +11,8 @@
 // ==/UserScript==
 
 (function() {
-    var imgBox, nowPage, allPage, doc, size, name, isStart = false, pageList = [],beginTime = new Date()
+    const downloadNum = 50 //每次达到此页数就自动保存，可根据实际情况改动
+    var imgBox, nowPage, allPage, doc, size, name, startNum = 1, isStart = false, pageList = [],beginTime = new Date()
     const baseURL = `https://${window.location.host}/`
     if(baseURL.indexOf("www") > -1){window.location.href=window.location.href.replace("www","lib-nuanxin")}
     const limitNum = [64655, 22471], limitMD5 = ["aba56eca9b49564cb47bce3f57bd14c2", "d9fff72044ac9a2726972b9dba58aa4e"]
@@ -45,6 +46,12 @@
         print(time)
         return new Promise((resolve) => setTimeout(resolve, time));
     }
+    function createList(now){
+        let arr = []
+        for(let i = now || nowPage;i < Math.min((now || nowPage) + downloadNum, allPage + 1); i++) arr.push(i)
+        startNum = arr[0]
+        return arr
+    }
     function imgCheck(c){
         if(c.length in limitNum && md5(c) in limitMD5)
             return false
@@ -53,19 +60,24 @@
     function addPDF(base64){
         doc.addImage(base64, 'JPEG', 0, 0, size[0], size[1])
     }
-    function savePDF(v){
-        doc.save(v.data.name + ".pdf")
+    function savePDF(num){
+        doc.save(`${name}_${num !== allPage ? num - downloadNum + 1 : Math.max(Math.floor(num / downloadNum) * downloadNum + 1, nowPage)}-${num}.pdf`)
+        if(num !== allPage)
+            doc = new jsPDF(size[0] < size[1] ? "" : "l", 'pt', size)
         print("总耗时 " + parseInt((new Date() - beginTime) / 1000 / 60) + " 分钟")
+    }
+    function getName(v){
+        name = v.data.name
     }
     function getInfo(url){
         const data = fetch(url, headers).then(function(res){
             if(res.status >=200 && res.status <300){
                 return res.json();
             }else{
-                getInfo(url)
+                throw new Error(res.statusText)
             }
         })
-        data.then(v=>{savePDF(v)})
+        data.then(v=>{getName(v)})
     }
     function getImg(num){
         const base64 = imgBox[num].firstChild.getAttribute("src");
@@ -79,8 +91,13 @@
             }
             addPDF(base64)
             if(num === allPage) {
-                getInfo("https://lib-nuanxin.wqxuetang.com/v1/read/initread?bid="+bid)
                 isStart = !isStart
+                savePDF(num)
+                return
+            }else if(num % downloadNum === 0){
+                savePDF(num)
+                pageList = createList(num + 1)
+                autoScroll(0)
                 return
             }
             doc.addPage()
@@ -89,16 +106,20 @@
     }
     async function autoScroll(num){
         if(pageList.length === 0) {
+            isStart = !isStart
             Download()
             return
         }
-        if(pageList[num] === pageList[pageList.length - 1]) {
+        if(pageList[num - 1] === pageList[pageList.length - 1]) {
             num = 0
         }
         print(pageList[num],num,pageList.length)
         document.documentElement.scrollTop = imgBox[pageList[num]].offsetTop
-        await sleep(4000,6000)
         let src = imgBox[pageList[num]].firstChild.getAttribute("src")
+        if(!src || src.indexOf("data:image/") === -1){
+            await sleep(6000,8000)
+            src = imgBox[pageList[num]].firstChild.getAttribute("src")
+        }
         if(!src || src.indexOf("width=100") > -1 || !imgCheck(src)){
             //print(pageList,src)
             autoScroll(num += 1)
@@ -109,19 +130,21 @@
         }
     }
     function Download(){
-        getImg(nowPage)
+        getImg(startNum)
     }
     window.onload = function(){
         document.getElementById("pagebox").onclick = function(){
             if(!isStart){
                 const numBox = document.getElementsByClassName("page-head-tol")[0].innerHTML
+                getInfo("https://lib-nuanxin.wqxuetang.com/v1/read/initread?bid="+bid)
                 imgBox = document.getElementsByClassName("page-img-box")
                 nowPage = parseInt(numBox.slice(0, numBox.indexOf("/") - 1))
                 allPage = imgBox.length - 1
-                for(let i = nowPage;i <= allPage; i++) pageList.push(i)
+                isStart = !isStart
+                pageList = createList()
                 autoScroll(0)
             }else{
-
+                return
             }
         }
         window.onbeforeunload=function(){
