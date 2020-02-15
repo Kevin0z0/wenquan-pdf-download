@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         文泉学堂PDF下载
 // @namespace    https://52pojie.cn
-// @version      0.52
+// @version      0.53
 // @description  try to take over the world!
 // @author       Culaccino
 // @match        https://*.wqxuetang.com/read/pdf/*
@@ -36,6 +36,8 @@
         console.log(...arguments)
     }
     function sleep(min, max) {
+        min *= 1000;
+        max *= 1000;
         const time = !min ? max : Math.floor(Math.random() * (max - min + 1)) + min;
         print(time)
         return new Promise((resolve) => setTimeout(resolve, time));
@@ -86,7 +88,7 @@
             getImg(num += 1)
         }
     }
-    async function autoScroll(num) {
+    async function autoScroll(num, isCorrect = true) {
         if (pageList.length === 0) {
             isStart = !isStart
             getImg(startNum)
@@ -96,19 +98,20 @@
         print(pageList[num], num, pageList.length)
         document.documentElement.scrollTop = imgBox[pageList[num]].offsetTop
         let src = imgBox[pageList[num]].firstChild.getAttribute("src")
-        if (!src || src.indexOf("data:image/") === -1) {
-            await sleep(6000, 8000)
+        if (!src || src.indexOf("data:image/") === -1 || !isCorrect) {
+            await sleep(8, 10)
             src = imgBox[pageList[num]].firstChild.getAttribute("src")
         }
         if (!src || src.indexOf("width=160") > -1) autoScroll(num += 1)
         else {
             let img = new Image();
             img.src = src;
-            img.onload = function () {
+            img.onload = async function () {
                 let w = img.width, h=img.height
                 if(!size){size = [w, h]}
+                print([w, h])
                 if(size[0] - w > 200){
-                    autoScroll(num += 1)
+                    autoScroll(num += 1, false)
                 }else{
                     dataList[pageList[num]] = src
                     pageList.remove(pageList[num])
